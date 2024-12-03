@@ -101,17 +101,20 @@ def _smart_pack(
 
     pack_width = options.material_width - 2 * options.margin
     pack_length = options.material_length - 2 * options.margin
-    packer.add_bin(_mm_to_int(pack_width), _mm_to_int(pack_length), count=float("inf"))
+    packer.add_bin(_mm_to_int(pack_width), _mm_to_int(
+        pack_length), count=float("inf"))
 
     for shape_idx, shape in enumerate(shapes):
         w_padded = shape.aabb.width + 2 * options.shape_padding
         h_padded = shape.aabb.height + 2 * options.shape_padding
         # if not (float("-inf") < w_padded < float("inf")):
-        print(f"shape_idx {shape_idx}, shape.aabb.width == {shape.aabb.width} ")
-            # continue
+        print(f"shape_idx {shape_idx}, shape.aabb.width == {
+              shape.aabb.width} ")
+        # continue
         # if not (float("-inf") < h_padded < float("inf")):
-        print(f"shape_idx {shape_idx}, shape.aabb.width == {shape.aabb.height} ")
-            # continue
+        print(f"shape_idx {shape_idx}, shape.aabb.width == {
+              shape.aabb.height} ")
+        # continue
         packer.add_rect(
             _mm_to_int(w_padded),
             _mm_to_int(h_padded),
@@ -120,7 +123,8 @@ def _smart_pack(
     packer.pack()
 
     if debug_svg_root is not None:
-        svg_debug = ET.SubElement(debug_svg_root, "g", {"id": "smart-pack-debug"})
+        svg_debug = ET.SubElement(debug_svg_root, "g", {
+                                  "id": "smart-pack-debug"})
         for rect in packer.rect_list():
             _, x, y, w, h, shape_idx = rect
             shape = shapes[shape_idx]
@@ -187,6 +191,7 @@ def _load_rectpack() -> ModuleType:
     my_dir = Path(__file__).absolute().parent
 
     sys.path.append(str(my_dir / "rectpack-0.2.2-py3.9.egg"))
+    print(sys.path)
     rectpack = importlib.import_module("rectpack")
     sys.path = old_syspath
 

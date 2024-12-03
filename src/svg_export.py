@@ -184,7 +184,8 @@ def _write_shape(
     # print("_write_shape:")
     poly_iter = shape.polygons_by_type()
     for mesh_idx, (mesh_type, flat_mesh) in enumerate(poly_iter):
-        points = " ".join(f"{v.x:.6},{-v.y:.6}" for v in flat_mesh.iter_points())
+        points = " ".join(
+            f"{v.x:.6},{-v.y:.6}" for v in flat_mesh.iter_points())
         # print(f"poly: {points}  (closed={poly_closed})" )
 
         svg_element = "polygon" if flat_mesh.is_closed else "polyline"
@@ -261,7 +262,8 @@ def _write_shape_table(
             )
 
         font_weight = "bold" if row_idx == 0 else "normal"
-        font_style = f'font-size:4pt; font-family:"Noto Sans", sans-serif; font-weight:{font_weight}'
+        font_style = f'font-size:4pt; font-family:"Noto Sans", sans-serif; font-weight:{
+            font_weight}'
 
         for row_idx, value in enumerate(row):
             x = columns[row_idx]

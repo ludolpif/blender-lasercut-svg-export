@@ -1,6 +1,6 @@
 # Notes
 
-# From initial manueal reading (manuel 4.2 on 12/2024)
+# From initial manual reading (4.2 on 12/2024)
 
 https://docs.blender.org/manual/en/4.2/advanced/extensions/addons.html
 

@@ -22,21 +22,21 @@ from mathutils import Vector
 
 is_first_load = "svg_export" not in locals()
 if is_first_load:
-    from . import svg_export, mesh_analysis, straightener
+    from . import svg_export, mesh_analysis  # , straightener
 else:
     import importlib
 
     svg_export = importlib.reload(svg_export)
     mesh_analysis = importlib.reload(mesh_analysis)
-    straightener = importlib.reload(straightener)
+    # straightener = importlib.reload(straightener)
 
 
-class EXPORT_MESH_OT_svg_outline(bpy.types.Operator, ExportHelper):
-    bl_idname = "export_mesh.svg_outline"
-    bl_label = "Flatten to SVG Outline"
+class EXPORT_MESH_OT_lasercut_svg_export(bpy.types.Operator, ExportHelper):
+    bl_idname = "export_mesh.lasercut_svg_export"
+    bl_label = "Lasercut SVG Export"
     bl_description = (
-        "Export the outline of the selected mesh objects. "
-        "MUST be planar meshes, possibly with holes"
+        "Export selected meshes to 2D SVG file."
+        "Faces needs to be marked first, and must be planar, possibly with holes"
     )
     bl_options = {"REGISTER"}  # No UNDO
 
@@ -57,24 +57,26 @@ class EXPORT_MESH_OT_svg_outline(bpy.types.Operator, ExportHelper):
 
         scene = context.scene
         options = mesh_analysis.Options(
-            laser_width=scene.flatterer_laser_width,
-            material_width=scene.flatterer_material_width,
-            material_length=scene.flatterer_material_length,
-            margin=scene.flatterer_margin,
-            shape_padding=scene.flatterer_shape_padding,
-            pack_sort=scene.flatterer_pack_sort,
-            pack_may_rotate=scene.flatterer_pack_may_rotate,
+            laser_width=scene.lasercut_svg_export_laser_width,
+            material_width=scene.lasercut_svg_export_material_width,
+            material_length=scene.lasercut_svg_export_material_length,
+            margin=scene.lasercut_svg_export_margin,
+            shape_padding=scene.lasercut_svg_export_shape_padding,
+            pack_sort=scene.lasercut_svg_export_pack_sort,
+            pack_may_rotate=scene.lasercut_svg_export_pack_may_rotate,
             shape_table=self.export_shape_table,
         )
         filepath = Path(self.filepath)
         try:
-            canvas_size = svg_export.write(depsgraph, filepath, to_export, options)
+            canvas_size = svg_export.write(
+                depsgraph, filepath, to_export, options)
         except svg_export.NoShapes:
             self.report({"ERROR"}, "No shapes to export, aborting.")
             return {"CANCELLED"}
 
         self.report(
-            {"INFO"}, f"Created {canvas_size[0]} x {canvas_size[1]} mm SVG file"
+            {"INFO"}, f"Created {canvas_size[0]} x {
+                canvas_size[1]} mm SVG file"
         )
 
         prefs = context.preferences.addons[__package__].preferences
@@ -88,12 +90,12 @@ class EXPORT_MESH_OT_svg_outline(bpy.types.Operator, ExportHelper):
         return [
             ob
             for ob in context.selected_objects
-            if ob.type == "MESH" and not ob.flatterer_exclude
+            if ob.type == "MESH" and not ob.lasercut_svg_export_exclude
         ]
 
 
-class FLATTERER_OT_setup_scene(bpy.types.Operator):
-    bl_idname = "flatterer.setup_scene"
+class LASERCUTSVGEXPORT_OT_setup_scene(bpy.types.Operator):
+    bl_idname = "lasercut_svg_export.setup_scene"
     bl_label = "Setup Scene for mm"
     bl_description = "Configure the Scene and 3D Viewport for mm units"
 
@@ -114,8 +116,57 @@ class FLATTERER_OT_setup_scene(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class FLATTERER_OT_add_solidify(bpy.types.Operator):
-    bl_idname = "flatterer.add_solidify"
+class LASERCUTSVGEXPORT_OT_scale_scene(bpy.types.Operator):
+    bl_idname = "lasercut_svg_export.scale_scene"
+    bl_label = "Scale default scene items"
+    bl_description = "Remove default Cube, scale default light and camera for objects in 10cm sine range"
+
+    def execute(self, context: bpy.types.Context) -> set[str]:
+        old_pivot_point = bpy.context.scene.tool_settings.transform_pivot_point
+        # bpy.context.space_data.context = 'DATA' SpaceView3D has no attribute context (wrong context)
+
+        if 'Cube' in bpy.data.objects:
+            default_cube = bpy.data.objects['Cube']
+            bpy.ops.object.select_all(action='DESELECT')
+            default_cube.select_set(True)
+            bpy.ops.object.delete(use_global=False)
+            if not 'Plane' in bpy.data.objects:
+                bpy.ops.mesh.primitive_plane_add(
+                    size=100, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
+                bpy.context.view_layer.objects.active = bpy.data.objects['Plane']
+
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.select_all(action='DESELECT')
+
+        if 'Camera' in bpy.data.objects:
+            default_camera = bpy.data.objects['Camera']
+            default_camera.select_set(True)
+            bpy.context.view_layer.objects.active = default_camera
+            bpy.context.object.data.clip_start = 10
+            bpy.context.object.data.clip_end = 1000
+            if bpy.context.object.scale.length > 2:
+                default_camera.select_set(False)
+
+        if 'Light' in bpy.data.objects:
+            default_light = bpy.data.objects['Light']
+            default_light.select_set(True)
+            bpy.context.view_layer.objects.active = default_light
+            bpy.context.object.data.energy = 1e+06
+            if bpy.context.object.scale.length > 2:
+                default_light.select_set(False)
+
+        bpy.ops.view3d.snap_cursor_to_center()
+        bpy.context.scene.tool_settings.transform_pivot_point = 'CURSOR'
+        bpy.ops.transform.resize(value=(50, 50, 50), orient_type='GLOBAL')
+        bpy.ops.object.select_all(action='DESELECT')
+
+        bpy.context.scene.tool_settings.transform_pivot_point = old_pivot_point
+
+        return {"FINISHED"}
+
+
+class LASERCUTSVGEXPORT_OT_add_solidify(bpy.types.Operator):
+    bl_idname = "lasercut_svg_export.add_solidify"
     bl_label = "Add Solidify Modifier"
     bl_description = "Add a solidify modifier to the selected mesh objects"
 
@@ -157,11 +208,11 @@ class FLATTERER_OT_add_solidify(bpy.types.Operator):
         dvar.type = "SINGLE_PROP"
         dvar.targets[0].id_type = "SCENE"
         dvar.targets[0].id = context.scene
-        dvar.targets[0].data_path = f"flatterer_material_thickness"
+        dvar.targets[0].data_path = f"lasercut_svg_export_material_thickness"
 
 
-class FLATTERER_OT_select_export_edges(bpy.types.Operator):
-    bl_idname = "flatterer.select_export_edges"
+class LASERCUTSVGEXPORT_OT_select_export_edges(bpy.types.Operator):
+    bl_idname = "lasercut_svg_export.select_export_edges"
     bl_label = "Select Export Edges"
     bl_description = "Select all edges that will be exported to SVG"
 
@@ -181,8 +232,8 @@ class FLATTERER_OT_select_export_edges(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class FLATTERER_OT_island_faces(bpy.types.Operator):
-    bl_idname = "flatterer.island_faces"
+class LASERCUTSVGEXPORT_OT_island_faces(bpy.types.Operator):
+    bl_idname = "lasercut_svg_export.island_faces"
     bl_label = "Add Faces to Islands"
     bl_description = ""
 
@@ -224,113 +275,8 @@ class FLATTERER_OT_island_faces(bpy.types.Operator):
             bpy.ops.mesh.edge_face_add()
 
 
-class FLATTERER_OT_straighten(bpy.types.Operator):
-    bl_idname = "flatterer.align_to_local_axis"
-    bl_label = "Align to Local Axis"
-    bl_description = "Rotate the mesh so that it aligns with a local coordinate axis"
-    bl_options = {"REGISTER", "UNDO"}
-
-    axis: bpy.props.EnumProperty(  # type: ignore
-        "Axis",
-        items=[
-            ("X", "X", "X-axis"),
-            ("Y", "Y", "Y-axis"),
-            ("Z", "Z", "Z-axis"),
-        ],
-    )
-
-    def execute(self, context: bpy.types.Context) -> set[str]:
-        user_count_before = context.object.data.users
-        try:
-            straightener.align_to_local_axis(context.object, self.axis)
-        except straightener.AligningAxesError:
-            self.report(
-                {"WARNING"},
-                f"Cannot rotate over the {self.axis} axis, as that is the normal of the mesh",
-            )
-            # Still return 'FINISHED' as 'CANCELLED' wouldn't show the redo panel.
-            return {"FINISHED"}
-
-        if user_count_before > 1 and context.object.data.users == 1:
-            self.report(
-                {"WARNING"},
-                "This operation made a copy of the mesh, and it's now single-user",
-            )
-
-        return {"FINISHED"}
-
-
-class FLATTERER_OT_extrude_finger(bpy.types.Operator):
-    bl_idname = "flatterer.extrude_finger"
-    bl_label = "Extrude Finger"
-    bl_description = "Extrude selected geometry away from the face center"
-    bl_options = {"REGISTER", "UNDO"}
-
-    @classmethod
-    def poll(cls, context: bpy.types.Context) -> bool:
-        return any(
-            ob.type == "MESH" and ob.mode == "EDIT" for ob in context.objects_in_mode
-        )
-
-    def execute(self, context: bpy.types.Context) -> set[str]:
-        length = context.scene.flatterer_material_thickness
-        any_extrusion = False
-        for ob in context.objects_in_mode:
-            any_extrusion |= self.extrude_fingers(ob, length)
-
-        if not any_extrusion:
-            self.report({"ERROR"}, "No selected edges found")
-            return {"CANCELLED"}
-
-        # Toggle edit mode back & forth to prevent black faces.
-        bpy.ops.object.mode_set(mode="OBJECT")
-        bpy.ops.object.mode_set(mode="EDIT")
-
-        return {"FINISHED"}
-
-    def extrude_fingers(self, object: bpy.types.Object, length: float) -> bool:
-        """Returns whether any extrusion was done."""
-
-        mesh = object.data
-        bm = bmesh.from_edit_mesh(mesh)
-
-        edges_per_tangent = defaultdict(list)
-
-        # Find the edges to extrude, and the direction to do that in.
-        for v in bm.verts:
-            for l in v.link_loops:
-                e = l.edge
-                if e.is_wire or not e.select:
-                    continue
-
-                # Assumption: face lies to the left of the loop.
-                v_other = e.other_vert(v)
-                loop_vec = (v_other.co - v.co).normalized()
-                tangent = loop_vec.cross(l.face.normal).normalized()
-
-                edges_per_tangent[tangent.freeze()].append(e)
-
-        # Check the result.
-        if not edges_per_tangent:
-            return False
-
-        # Perform the extrusion.
-        for tangent, edges in edges_per_tangent.items():
-            extrude_vec = tangent * length
-            geom = bmesh.ops.extrude_edge_only(bm, edges=edges)
-            moved_verts = (v for v in geom["geom"] if isinstance(v, bmesh.types.BMVert))
-            for vert in moved_verts:
-                vert.co += extrude_vec
-
-        # Update the edit mesh.
-        bmesh.update_edit_mesh(mesh)
-        object.update_from_editmode()
-
-        return True
-
-
-class FLATTERER_OT_separate_mesh(bpy.types.Operator):
-    bl_idname = "flatterer.separate_mesh"
+class LASERCUTSVGEXPORT_OT_separate_mesh(bpy.types.Operator):
+    bl_idname = "lasercut_svg_export.separate_mesh"
     bl_label = "Separate Mesh into Faces"
     bl_description = "Split up the mesh into an object per face"
     bl_options = {"REGISTER", "UNDO"}
@@ -390,9 +336,9 @@ class FLATTERER_OT_separate_mesh(bpy.types.Operator):
         return True
 
 
-class FLATTERER_OT_boolean_cut(bpy.types.Operator):
-    bl_idname = "flatterer.boolean_cut"
-    bl_label = "Boolean Cut"
+class LASERCUTSVGEXPORT_OT_boolean_cut(bpy.types.Operator):
+    bl_idname = "lasercut_svg_export.boolean_cut"
+    bl_label = "Add Boolean Cut Modifier"
     bl_description = (
         "Add Boolean modifiers to selected mesh objects to cut out the active object"
     )
@@ -416,7 +362,8 @@ class FLATTERER_OT_boolean_cut(bpy.types.Operator):
 
             # Move the operator to before any Solidify modifier.
             with context.temp_override(object=ob):
-                bpy.ops.object.modifier_move_to_index(modifier=mod.name, index=0)
+                bpy.ops.object.modifier_move_to_index(
+                    modifier=mod.name, index=0)
 
         return {"FINISHED"}
 
@@ -428,17 +375,3 @@ class FLATTERER_OT_boolean_cut(bpy.types.Operator):
             for other_ob in context.selected_objects
             if other_ob.type == "MESH" and ob != other_ob
         ]
-
-
-classes = (
-    EXPORT_MESH_OT_svg_outline,
-    FLATTERER_OT_setup_scene,
-    FLATTERER_OT_add_solidify,
-    FLATTERER_OT_select_export_edges,
-    FLATTERER_OT_island_faces,
-    FLATTERER_OT_straighten,
-    FLATTERER_OT_extrude_finger,
-    FLATTERER_OT_separate_mesh,
-    FLATTERER_OT_boolean_cut,
-)
-register, unregister = bpy.utils.register_classes_factory(classes)

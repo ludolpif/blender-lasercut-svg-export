@@ -11,6 +11,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+import sys
+import doctest
 from typing import Iterable, Optional, TYPE_CHECKING, Iterator, cast
 from dataclasses import dataclass
 from collections import defaultdict
@@ -423,7 +425,8 @@ def add_kerf(bm: bmesh.types.BMesh, options: Options, object_name: str) -> None:
 
     # Accumulate kerfs. This must be done afterwards to ensure all kerf
     # directions are computed before the adjustments are applied.
-    vtx_kerf_directions: dict[int, Vector] = defaultdict(lambda: Vector((0, 0, 0)))
+    vtx_kerf_directions: dict[int, Vector] = defaultdict(
+        lambda: Vector((0, 0, 0)))
     for edge_index, kerfs in edge_kerfs.items():
         assert len(kerfs) == 1, "Expecting edges to be visited only once"
         kerf_direction = kerfs[0]
@@ -457,7 +460,8 @@ def _boundary_polygons_from_bmesh(
 
     non_export_starters = start_edge_indices - export_edge_indices
     if non_export_starters:
-        print(f"Warning: non-export started edges: {sorted(non_export_starters)}")
+        print(
+            f"Warning: non-export started edges: {sorted(non_export_starters)}")
         start_edge_indices -= non_export_starters
 
     def find_next_edge(vertex: bmesh.types.BMVert) -> Optional[bmesh.types.BMEdge]:
@@ -484,7 +488,8 @@ def _boundary_polygons_from_bmesh(
         else:
             visit, v0 = e.verts
 
-        edge = AnnotatedEdge(verts=(v0.co, visit.co), edgeType=MeshType.for_edge(e))
+        edge = AnnotatedEdge(verts=(v0.co, visit.co),
+                             edgeType=MeshType.for_edge(e))
         annotated_mesh.append_edge(edge)
 
         # Keep following this edge sequence until the end.
@@ -502,10 +507,12 @@ def _boundary_polygons_from_bmesh(
             next1, next2 = e.verts
             if next1.index == visit.index:
                 visit = next2
-                edge = AnnotatedEdge(verts=(next1.co, visit.co), edgeType=edge_type)
+                edge = AnnotatedEdge(
+                    verts=(next1.co, visit.co), edgeType=edge_type)
             else:
                 visit = next1
-                edge = AnnotatedEdge(verts=(next2.co, visit.co), edgeType=edge_type)
+                edge = AnnotatedEdge(
+                    verts=(next2.co, visit.co), edgeType=edge_type)
             annotated_mesh.append_edge(edge)
 
         yield annotated_mesh
@@ -591,9 +598,6 @@ def select_export_edges(ob: bpy.types.Object) -> None:
 def _is_export_edge(e: bmesh.types.BMEdge) -> bool:
     return bool(e.is_boundary or e.is_wire)
 
-
-import doctest
-import sys
 
 mod = sys.modules[__name__]
 doctest.testmod(mod)

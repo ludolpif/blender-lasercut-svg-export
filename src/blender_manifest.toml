@@ -2,33 +2,70 @@ schema_version = "1.0.0"
 
 # Example of manifest file for a Blender extension
 # Change the values according to your extension
-id = "flatterer"
-version = "1.6.0-beta1"
-name = "Flatterer"
-tagline = "Flat mesh to SVG exporter for laser cutters"
-description = "Flatterer turns a 3D model in Blender into a set of shapes suitable for laser cutting. It’s aimed at easily exporting boxes, enclosures, and other made-for-laser-cutting designs to SVG."
+id = "lasercut_svg_export"
+version = "0.1.0"
+name = "LaserCut export (3D to 2D SVG)"
+tagline = "Exports tagged planes to SVG for laser cutters, like flatterer"
+maintainer = "ludolpif <ludolpif@gmail.com>"
+# Supported types: "add-on", "theme"
 type = "add-on"
 
-# Optional list of permissions extensions of type add-on may rely on.
-# Supported permissions:
-# * "files" (for access of any filesystem operations)
-# * "network" (for internet access)
-permissions = ["files"]
+# link to documentation, support, source files, etc
+# website = "https://extensions.blender.org/add-ons/lasercut-export/"
 
-# Optional link to documentation, support, source files, etc
-website = "https://stüvel.eu/software/flatterer/"
-
-# List defined by Blender and server, see:
-# https://docs.blender.org/manual/en/4.1/extensions/tags.html
+# tag list defined by Blender and server, see:
+# # https://docs.blender.org/manual/en/dev/advanced/extensions/tags.html
 tags = ["Import-Export"]
 
 blender_version_min = "4.2.0"
-# Optional: maximum supported Blender version
+# Blender version that the extension does not support, earlier versions are supported.
+# # This can be omitted and defined later on the extensions platform if an issue is found.
 # blender_version_max = "5.1.0"
 
-maintainer = "Sybren Stüvel <sybren@stuvel.eu>"
-# License conforming to https://spdx.org/is suppose to dolicenses/
-# use "SPDX: prefix.
-license = ["SPDX:GPL-2.0-or-later"]
-# Optional: required by some licenses.
-copyright = ["2022-2024 dr. Sybren A. Stüvel"]
+# License conforming to https://spdx.org/licenses/ (use "SPDX: prefix)
+# https://docs.blender.org/manual/en/dev/advanced/extensions/licenses.html
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+copyright = [
+  "2024 ludolpif <ludolpif@gmail.com>",
+  "2022-2024 dr. Sybren A. Stüvel",
+]
+
+# list of supported platforms. If omitted, the extension will be available in all operating systems.
+# platforms = ["windows-x64", "macos-arm64", "linux-x64"]
+# # Other supported platforms: "windows-arm64", "macos-x64"
+
+# bundle 3rd party Python modules.
+# # https://docs.blender.org/manual/en/dev/advanced/extensions/python_wheels.html
+# wheels = [
+#   "./wheels/hexdump-3.3-py3-none-any.whl",
+#   "./wheels/jsmin-3.0.1-py3-none-any.whl",
+# ]
+
+# add-ons can list which resources they will require:
+# * files (for access of any filesystem operations)
+# * network (for internet access)
+# * clipboard (to read and/or write the system clipboard)
+# * camera (to capture photos and videos)
+# * microphone (to capture audio)
+#
+# If using network, remember to also check `bpy.app.online_access`
+# https://docs.blender.org/manual/en/dev/advanced/extensions/addons.html#internet-access
+#
+# For each permission it is important to also specify the reason why it is required.
+# Keep this a single short sentence without a period (.) at the end.
+# For longer explanations use the documentation or detail page.
+[permissions]
+files = "Export SVG to disk"
+
+# advanced build settings.
+# # https://docs.blender.org/manual/en/dev/advanced/extensions/command_line_arguments.html#command-line-args-extension-build
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "/.gitignore",
+  "/.git/",
+  "/*.zip",
+  "Makefile",
+]

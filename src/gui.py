@@ -14,61 +14,71 @@
 import bpy
 
 
-class FlattererPanel:
+class LasercutSvgExportPanel:
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Export"
 
 
-class FLATTERER_PT_sidepanel(FlattererPanel, bpy.types.Panel):
-    bl_label = "Flatterer"
+class LASERCUTSVGEXPORT_PT_sidepanel(LasercutSvgExportPanel, bpy.types.Panel):
+    bl_label = "Lasercut SVG Export"
 
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
         col = layout.column(align=True)
         col.use_property_split = True
         col.use_property_decorate = False
-        col.prop(context.scene, "flatterer_laser_width")
-        col.prop(context.scene, "flatterer_material_width")
-        col.prop(context.scene, "flatterer_material_length")
-        col.prop(context.scene, "flatterer_material_thickness")
-        col.prop(context.scene, "flatterer_margin")
-        col.prop(context.scene, "flatterer_shape_padding")
-        col.operator("flatterer.setup_scene")
+        col.prop(context.scene, "lasercut_svg_export_laser_width")
+        col.prop(context.scene, "lasercut_svg_export_material_width")
+        col.prop(context.scene, "lasercut_svg_export_material_length")
+        col.prop(context.scene, "lasercut_svg_export_material_thickness")
+        col.prop(context.scene, "lasercut_svg_export_margin")
+        col.prop(context.scene, "lasercut_svg_export_shape_padding")
+        col.operator("lasercut_svg_export.setup_scene")
+        col.operator("lasercut_svg_export.scale_scene")
 
         col = layout.column(align=True)
         col.use_property_split = False
         col.label(text="Packing Options:")
-        col.prop(context.scene, "flatterer_pack_may_rotate")
-        col.prop(context.scene, "flatterer_pack_sort", text="")
+        col.prop(context.scene, "lasercut_svg_export_pack_may_rotate")
+        col.prop(context.scene, "lasercut_svg_export_pack_sort", text="")
 
-        layout.operator("export_mesh.svg_outline")
+        layout.operator("export_mesh.lasercut_svg_export")
 
 
-class FLATTERER_PT_objects(FlattererPanel, bpy.types.Panel):
-    bl_label = "Object Options"
-    bl_parent_id = "FLATTERER_PT_sidepanel"
+class LASERCUTSVGEXPORT_PT_objects(LasercutSvgExportPanel, bpy.types.Panel):
+    bl_label = "Object Operations"
+    bl_parent_id = "LASERCUTSVGEXPORT_PT_sidepanel"
 
     @classmethod
     def poll(cls, context: bpy.types.Context) -> bool:
-        return bool(context.object)
+        return True  # bool(context.selected_objects)
 
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
         col = layout.column(align=True)
-        col.prop(context.object, "flatterer_exclude")
-        col.operator("flatterer.add_solidify", icon="MOD_SOLIDIFY")
-        col.operator("flatterer.align_to_local_axis", icon="EMPTY_AXIS")
-        col.operator("flatterer.boolean_cut", icon="MOD_BOOLEAN")
+        col.prop(context.object, "lasercut_svg_export_exclude")
+        col.operator("lasercut_svg_export.add_solidify", icon="MOD_SOLIDIFY")
+        # col.operator("lasercut_svg_export.align_to_local_axis", icon="EMPTY_AXIS")
+        op_props = col.operator("object.transform_apply",
+                                text="Apply Global Scale to Local", translate=False, icon="EMPTY_AXIS")
+        op_props.location = False
+        op_props.rotation = False
+        op_props.scale = True
+        op_props.properties = False
+
+        # bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        col.operator("lasercut_svg_export.boolean_cut", icon="MOD_BOOLEAN")
+        col.enabled = bool(context.selected_objects)
 
 
-class FLATTERER_PT_edges(FlattererPanel, bpy.types.Panel):
-    bl_label = "Edge Options"
-    bl_parent_id = "FLATTERER_PT_sidepanel"
+class LASERCUTSVGEXPORT_PT_edges(LasercutSvgExportPanel, bpy.types.Panel):
+    bl_label = "Edge Operations"
+    bl_parent_id = "LASERCUTSVGEXPORT_PT_sidepanel"
 
     @classmethod
     def poll(cls, context: bpy.types.Context) -> bool:
-        return bool(context.object and context.mode == "EDIT_MESH")
+        return True  # bool(context.object and context.mode == "EDIT_MESH")
 
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
@@ -84,33 +94,12 @@ class FLATTERER_PT_edges(FlattererPanel, bpy.types.Panel):
         row.split(factor=0.8)
         row.label(text="Engrave")
         row.operator("mesh.mark_sharp", text="", icon="X").clear = True
-        row.operator("mesh.mark_sharp", text="", icon="CHECKMARK").clear = False
+        row.operator("mesh.mark_sharp", text="",
+                     icon="CHECKMARK").clear = False
 
         col = layout.column(align=True)
-        col.operator("flatterer.select_export_edges")
-        col.operator("flatterer.separate_mesh")
-        col.operator("flatterer.extrude_finger")
+        col.operator("lasercut_svg_export.select_export_edges")
+        col.operator("lasercut_svg_export.separate_mesh")
+        # col.operator("lasercut_svg_export.extrude_finger")
 
-
-def export_menu(
-    self: bpy.types.TOPBAR_MT_file_export, context: bpy.types.Context
-) -> None:
-    self.layout.operator("export_mesh.svg_outline")
-
-
-classes = (
-    FLATTERER_PT_sidepanel,
-    FLATTERER_PT_objects,
-    FLATTERER_PT_edges,
-)
-_register, _unregister = bpy.utils.register_classes_factory(classes)
-
-
-def register() -> None:
-    _register()
-    bpy.types.TOPBAR_MT_file_export.append(export_menu)
-
-
-def unregister() -> None:
-    _unregister()
-    bpy.types.TOPBAR_MT_file_export.remove(export_menu)
+        layout.enabled = bool(context.object and context.mode == "EDIT_MESH")
