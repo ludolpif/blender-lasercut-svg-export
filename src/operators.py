@@ -123,8 +123,8 @@ class LASERCUTSVGEXPORT_OT_scale_scene(bpy.types.Operator):
 
     def execute(self, context: bpy.types.Context) -> set[str]:
         old_pivot_point = bpy.context.scene.tool_settings.transform_pivot_point
-        # bpy.context.space_data.context = 'DATA' SpaceView3D has no attribute context (wrong context)
 
+        # Replace default Cube if exists by a 100*100mm plane
         if 'Cube' in bpy.data.objects:
             default_cube = bpy.data.objects['Cube']
             bpy.ops.object.select_all(action='DESELECT')
@@ -134,31 +134,48 @@ class LASERCUTSVGEXPORT_OT_scale_scene(bpy.types.Operator):
                 bpy.ops.mesh.primitive_plane_add(
                     size=100, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
                 bpy.context.view_layer.objects.active = bpy.data.objects['Plane']
+                bpy.ops.lasercut_svg_export.add_solidify()
 
+        # Note: mode_set() can fail if active element was removed (this is why 'Plane' is made active)
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
 
+        # Select and configure default Camera to not clip before 2 meters far
         if 'Camera' in bpy.data.objects:
             default_camera = bpy.data.objects['Camera']
             default_camera.select_set(True)
             bpy.context.view_layer.objects.active = default_camera
-            bpy.context.object.data.clip_start = 10
-            bpy.context.object.data.clip_end = 1000
+            bpy.context.object.data.clip_start = 20
+            bpy.context.object.data.clip_end = 2000
             if bpy.context.object.scale.length > 2:
+                # Don't scale more than once (initial is srqt(3) ~= 1.71)
                 default_camera.select_set(False)
 
+        # Select and configure default Light to 1 Watt
         if 'Light' in bpy.data.objects:
             default_light = bpy.data.objects['Light']
             default_light.select_set(True)
             bpy.context.view_layer.objects.active = default_light
             bpy.context.object.data.energy = 1e+06
             if bpy.context.object.scale.length > 2:
+                # Don't scale more than once (initial is srqt(3) ~= 1.71)
                 default_light.select_set(False)
 
-        bpy.ops.view3d.snap_cursor_to_center()
-        bpy.context.scene.tool_settings.transform_pivot_point = 'CURSOR'
-        bpy.ops.transform.resize(value=(50, 50, 50), orient_type='GLOBAL')
-        bpy.ops.object.select_all(action='DESELECT')
+        # Scale by 50 from Global center select objects (maybe Camera and Light)
+        if bpy.context.selected_objects:
+            bpy.ops.view3d.snap_cursor_to_center()
+            bpy.context.scene.tool_settings.transform_pivot_point = 'CURSOR'
+            bpy.ops.transform.resize(value=(50, 50, 50), orient_type='GLOBAL')
+            bpy.ops.object.select_all(action='DESELECT')
+
+            # Unzoom all 3D views
+            for area in bpy.context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    for region in area.regions:
+                        if region.type == 'WINDOW':
+                            # XXX can't make it unzoom more than one step, even with delta=-1000
+                            for i in range(20):
+                                bpy.ops.view3d.zoom(delta=-1)
 
         bpy.context.scene.tool_settings.transform_pivot_point = old_pivot_point
 
