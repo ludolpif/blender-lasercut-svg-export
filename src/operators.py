@@ -392,3 +392,51 @@ class LASERCUTSVGEXPORT_OT_boolean_cut(bpy.types.Operator):
             for other_ob in context.selected_objects
             if other_ob.type == "MESH" and ob != other_ob
         ]
+
+class LASERCUTSVGEXPORT_OT_mark_faces(bpy.types.Operator):
+    bl_idname = "lasercut_svg_export.mark_faces"
+    bl_label = "Mark lasercut faces"
+    bl_description = "Mark selected faces to be exported to 2D SVG"
+    bl_options = {"REGISTER", "UNDO"}
+    
+    mark: bpy.props.BoolProperty(name="Mark face to export")
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context) -> bool:
+        ob = context.edit_object
+        in_edit_mode = ob and ob.type == "MESH" and ob.mode == "EDIT"
+        return bool(in_edit_mode and bpy.ops.mesh.separate.poll())
+
+    def execute(self, context: bpy.types.Context) -> set[str]:
+        mesh = context.edit_object.data
+        
+        # Get a BMesh representation
+        bm = bmesh.new()   # create an empty BMesh
+        bm.from_mesh(mesh) # fill it in from a Mesh
+
+        # XXX ensure taht active int layer is the right one, or select it ?
+        lasercut_layer = bm.faces.layers.int.active
+        if not lasercut_layer:
+            lasercut_layer = bm.faces.layers.int.new("lasercut")
+        
+        for face in bm.faces:
+            # XXX filter only on selected faces
+            if self.mark:
+                print(f"mark_face on {face}")
+                face[lasercut_layer] = 1
+            else:
+                print(f"unmark_face on {face}")
+                face[lasercut_layer] = 0
+        
+        # Finish up, write the bmesh back to the mesh
+        bpy.ops.object.mode_set(mode="OBJECT")
+        bm.to_mesh(mesh)
+        bm.free()  # free and prevent further access
+
+        # as per https://docs.blender.org/api/current/bmesh.html#edit-mode-tessellation
+        mesh.calc_loop_triangles()
+
+        # Toggle edit mode back & forth to ensure edit data is up to date.
+        bpy.ops.object.mode_set(mode="EDIT")
+
+        return {"FINISHED"}

@@ -34,8 +34,8 @@ class LASERCUTSVGEXPORT_PT_sidepanel(LasercutSvgExportPanel, bpy.types.Panel):
         col.prop(context.scene, "lasercut_svg_export_material_thickness")
         col.prop(context.scene, "lasercut_svg_export_margin")
         col.prop(context.scene, "lasercut_svg_export_shape_padding")
-        col.operator("lasercut_svg_export.setup_scene")
-        col.operator("lasercut_svg_export.scale_scene")
+        col.operator("lasercut_svg_export.setup_scene", icon="TOOL_SETTINGS")
+        col.operator("lasercut_svg_export.scale_scene", icon="ZOOM_IN")
 
         col = layout.column(align=True)
         col.use_property_split = False
@@ -43,7 +43,7 @@ class LASERCUTSVGEXPORT_PT_sidepanel(LasercutSvgExportPanel, bpy.types.Panel):
         col.prop(context.scene, "lasercut_svg_export_pack_may_rotate")
         col.prop(context.scene, "lasercut_svg_export_pack_sort", text="")
 
-        layout.operator("export_mesh.lasercut_svg_export")
+        layout.operator("export_mesh.lasercut_svg_export", icon="EXPORT")
 
 
 class LASERCUTSVGEXPORT_PT_objects(LasercutSvgExportPanel, bpy.types.Panel):
@@ -57,7 +57,7 @@ class LASERCUTSVGEXPORT_PT_objects(LasercutSvgExportPanel, bpy.types.Panel):
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
         col = layout.column(align=True)
-        col.prop(context.object, "lasercut_svg_export_exclude")
+        #col.prop(context.object, "lasercut_svg_export_exclude")
         col.operator("lasercut_svg_export.add_solidify", icon="MOD_SOLIDIFY")
         # col.operator("lasercut_svg_export.align_to_local_axis", icon="EMPTY_AXIS")
         op_props = col.operator("object.transform_apply",
@@ -72,6 +72,28 @@ class LASERCUTSVGEXPORT_PT_objects(LasercutSvgExportPanel, bpy.types.Panel):
         col.enabled = bool(context.selected_objects)
 
 
+class LASERCUTSVGEXPORT_PT_faces(LasercutSvgExportPanel, bpy.types.Panel):
+    bl_label = "Face Operations"
+    bl_parent_id = "LASERCUTSVGEXPORT_PT_sidepanel"
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context) -> bool:
+        return True  # bool(context.object and context.mode == "EDIT_MESH")
+
+    def draw(self, context: bpy.types.Context) -> None:
+        layout = self.layout
+        layout.enabled = bool(context.object and context.mode == "EDIT_MESH")
+
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        row.split(factor=0.8)
+        row.label(text="Mark lasercut faces")
+        row.operator("lasercut_svg_export.mark_faces",
+                     text="", icon="X").mark = False
+        row.operator("lasercut_svg_export.mark_faces",
+                     text="", icon="CHECKMARK").mark = True
+
+
 class LASERCUTSVGEXPORT_PT_edges(LasercutSvgExportPanel, bpy.types.Panel):
     bl_label = "Edge Operations"
     bl_parent_id = "LASERCUTSVGEXPORT_PT_sidepanel"
@@ -82,6 +104,7 @@ class LASERCUTSVGEXPORT_PT_edges(LasercutSvgExportPanel, bpy.types.Panel):
 
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
+        layout.enabled = bool(context.object and context.mode == "EDIT_MESH")
 
         col = layout.column(align=True)
         row = col.row(align=True)
@@ -100,6 +123,3 @@ class LASERCUTSVGEXPORT_PT_edges(LasercutSvgExportPanel, bpy.types.Panel):
         col = layout.column(align=True)
         col.operator("lasercut_svg_export.select_export_edges")
         col.operator("lasercut_svg_export.separate_mesh")
-        # col.operator("lasercut_svg_export.extrude_finger")
-
-        layout.enabled = bool(context.object and context.mode == "EDIT_MESH")
