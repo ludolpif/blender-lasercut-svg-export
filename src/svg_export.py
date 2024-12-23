@@ -30,8 +30,6 @@ else:
     mesh_analysis = importlib.reload(mesh_analysis)
     packing = importlib.reload(packing)
 
-float2 = tuple[float, float]
-
 # <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 # <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 # <svg width="391" height="391" viewBox="-70.5 -70.5 391 391" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
@@ -171,6 +169,7 @@ def _collect_shapes(
     for object in objects:
         with _solidify_disabled(depsgraph, object) as ob_eval:
             mesh_boundary = mesh_analysis.flatten_mesh(ob_eval, options)
+            print(f"TODO change logic from here. {mesh_boundary}")
             shapes.append(mesh_boundary)
     return shapes
 
