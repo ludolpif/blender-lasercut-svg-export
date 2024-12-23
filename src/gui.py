@@ -47,18 +47,16 @@ class LASERCUTSVGEXPORT_PT_sidepanel(LasercutSvgExportPanel, bpy.types.Panel):
 
 
 class LASERCUTSVGEXPORT_PT_objects(LasercutSvgExportPanel, bpy.types.Panel):
-    bl_label = "Object Operations"
+    bl_label = "Object Mode meshes operations"
     bl_parent_id = "LASERCUTSVGEXPORT_PT_sidepanel"
-
-    @classmethod
-    def poll(cls, context: bpy.types.Context) -> bool:
-        return True  # bool(context.selected_objects)
 
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
         col = layout.column(align=True)
-        #col.prop(context.object, "lasercut_svg_export_exclude")
+        # FIXME svg_export_exclude is only for active objects and not selected objets, not very intuitive and may be superseeded by face marking
+        # col.prop(context.object, "lasercut_svg_export_exclude")
         col.operator("lasercut_svg_export.add_solidify", icon="MOD_SOLIDIFY")
+        # TODO I have hopes to not flatten anything, just select faces to export, removing the axis-alignment constraint
         # col.operator("lasercut_svg_export.align_to_local_axis", icon="EMPTY_AXIS")
         op_props = col.operator("object.transform_apply",
                                 text="Apply Global Scale to Local", translate=False, icon="EMPTY_AXIS")
@@ -72,13 +70,22 @@ class LASERCUTSVGEXPORT_PT_objects(LasercutSvgExportPanel, bpy.types.Panel):
         col.enabled = bool(context.selected_objects)
 
 
-class LASERCUTSVGEXPORT_PT_faces(LasercutSvgExportPanel, bpy.types.Panel):
-    bl_label = "Face Operations"
+class LASERCUTSVGEXPORT_PT_edit_ops(LasercutSvgExportPanel, bpy.types.Panel):
+    bl_label = "Edit Mode operations"
     bl_parent_id = "LASERCUTSVGEXPORT_PT_sidepanel"
 
-    @classmethod
-    def poll(cls, context: bpy.types.Context) -> bool:
-        return True  # bool(context.object and context.mode == "EDIT_MESH")
+    def draw(self, context: bpy.types.Context) -> None:
+        layout = self.layout
+        layout.enabled = bool(context.object and context.mode == "EDIT_MESH")
+
+        col = layout.column(align=True)
+        col.operator("lasercut_svg_export.select_export_edges")
+        col.operator("lasercut_svg_export.separate_mesh")
+
+
+class LASERCUTSVGEXPORT_PT_faces(LasercutSvgExportPanel, bpy.types.Panel):
+    bl_label = "Edit Mode faces operations"
+    bl_parent_id = "LASERCUTSVGEXPORT_PT_sidepanel"
 
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
@@ -89,22 +96,18 @@ class LASERCUTSVGEXPORT_PT_faces(LasercutSvgExportPanel, bpy.types.Panel):
         row.split(factor=0.8)
         row.label(text="Mark lasercut faces")
         row.operator("lasercut_svg_export.mark_faces",
-                     text="", icon="X").mark = False
+                     text="", icon="X").mark = 0
         row.operator("lasercut_svg_export.mark_faces",
-                     text="", icon="CHECKMARK").mark = True
+                     text="", icon="CHECKMARK").mark = 1
 
 
 class LASERCUTSVGEXPORT_PT_edges(LasercutSvgExportPanel, bpy.types.Panel):
-    bl_label = "Edge Operations"
+    bl_label = "Edit Mode edges operations"
     bl_parent_id = "LASERCUTSVGEXPORT_PT_sidepanel"
-
-    @classmethod
-    def poll(cls, context: bpy.types.Context) -> bool:
-        return True  # bool(context.object and context.mode == "EDIT_MESH")
 
     def draw(self, context: bpy.types.Context) -> None:
         layout = self.layout
-        layout.enabled = bool(context.object and context.mode == "EDIT_MESH")
+        layout.enabled = bpy.ops.lasercut_svg_export.print_edges.poll()
 
         col = layout.column(align=True)
         row = col.row(align=True)
@@ -119,7 +122,3 @@ class LASERCUTSVGEXPORT_PT_edges(LasercutSvgExportPanel, bpy.types.Panel):
         row.operator("mesh.mark_sharp", text="", icon="X").clear = True
         row.operator("mesh.mark_sharp", text="",
                      icon="CHECKMARK").clear = False
-
-        col = layout.column(align=True)
-        col.operator("lasercut_svg_export.select_export_edges")
-        col.operator("lasercut_svg_export.separate_mesh")

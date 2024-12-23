@@ -30,6 +30,7 @@ classes = (
     preferences.LasercutSvgExportPreferences,
     gui.LASERCUTSVGEXPORT_PT_sidepanel,
     gui.LASERCUTSVGEXPORT_PT_objects,
+    gui.LASERCUTSVGEXPORT_PT_edit_ops,
     gui.LASERCUTSVGEXPORT_PT_faces,
     gui.LASERCUTSVGEXPORT_PT_edges,
     operators.EXPORT_MESH_OT_lasercut_svg_export,
@@ -43,6 +44,7 @@ classes = (
     operators.LASERCUTSVGEXPORT_OT_separate_mesh,
     operators.LASERCUTSVGEXPORT_OT_boolean_cut,
     operators.LASERCUTSVGEXPORT_OT_mark_faces,
+    operators.LASERCUTSVGEXPORT_OT_print_edges,
 )
 
 _register, _unregister = bpy.utils.register_classes_factory(classes)

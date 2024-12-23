@@ -47,10 +47,6 @@ class EXPORT_MESH_OT_lasercut_svg_export(bpy.types.Operator, ExportHelper):
         description="Include a table listing the shapes and their sizes",
     )
 
-    @classmethod
-    def poll(cls, context: bpy.types.Context) -> bool:
-        return len(cls._exportable_objects(context)) > 0
-
     def execute(self, context: bpy.types.Context) -> set[str]:
         depsgraph = context.view_layer.depsgraph
         to_export = self._exportable_objects(context)
@@ -89,7 +85,7 @@ class EXPORT_MESH_OT_lasercut_svg_export(bpy.types.Operator, ExportHelper):
     def _exportable_objects(context: bpy.types.Context) -> list[bpy.types.Object]:
         return [
             ob
-            for ob in context.selected_objects
+            for ob in (context.selected_objects or context.selectable_objects)
             if ob.type == "MESH" and not ob.lasercut_svg_export_exclude
         ]
 
@@ -122,32 +118,48 @@ class LASERCUTSVGEXPORT_OT_scale_scene(bpy.types.Operator):
     bl_description = "Remove default Cube, scale default light and camera for objects in 10cm sine range"
 
     def execute(self, context: bpy.types.Context) -> set[str]:
-        old_pivot_point = bpy.context.scene.tool_settings.transform_pivot_point
+        try:
+            # Quit a potential edit mode before adding/remove objets in the scene
+            # can fail if active element was removed/became invalid
+            bpy.ops.object.mode_set(mode='OBJECT')
+        except RuntimeError as e:
+            # XXX I don't really know all edges cases that can make it fail nor how to get it success for sure
+            self.report({"WARNING"}, f"Can't switch to 'OBJECT' mode : {e}")
 
-        # Replace default Cube if exists by a 100*100mm plane
+        old_pivot_point = context.scene.tool_settings.transform_pivot_point
+        selectable_meshes = [
+            ob
+            for ob in context.selectable_objects
+            if ob.type == "MESH"
+        ]
+
+        # Remove the default Cube if exists
+        removed_cube = False
         if 'Cube' in bpy.data.objects:
             default_cube = bpy.data.objects['Cube']
             bpy.ops.object.select_all(action='DESELECT')
             default_cube.select_set(True)
             bpy.ops.object.delete(use_global=False)
-            if not 'Plane' in bpy.data.objects:
-                bpy.ops.mesh.primitive_plane_add(
-                    size=100, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
-                bpy.context.view_layer.objects.active = bpy.data.objects['Plane']
-                bpy.ops.lasercut_svg_export.add_solidify()
+            removed_cube = True
 
-        # Note: mode_set() can fail if active element was removed (this is why 'Plane' is made active)
-        bpy.ops.object.mode_set(mode='OBJECT')
+        # Add a 100*100mm plane if not already there and if we just removed the default cube or if there were any meshes at all
+        if not 'Plane' in bpy.data.objects and (removed_cube or len(selectable_meshes) == 0):
+            bpy.ops.mesh.primitive_plane_add(
+                size=100, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
+            # set this new 'Plane' as active object to exclude a potential now invalid (removed) 'Cube' as active
+            context.view_layer.objects.active = bpy.data.objects['Plane']
+            bpy.ops.lasercut_svg_export.add_solidify()
+
         bpy.ops.object.select_all(action='DESELECT')
 
         # Select and configure default Camera to not clip before 2 meters far
         if 'Camera' in bpy.data.objects:
             default_camera = bpy.data.objects['Camera']
             default_camera.select_set(True)
-            bpy.context.view_layer.objects.active = default_camera
-            bpy.context.object.data.clip_start = 20
-            bpy.context.object.data.clip_end = 2000
-            if bpy.context.object.scale.length > 2:
+            context.view_layer.objects.active = default_camera
+            context.object.data.clip_start = 20
+            context.object.data.clip_end = 2000
+            if context.object.scale.length > 2:
                 # Don't scale more than once (initial is srqt(3) ~= 1.71)
                 default_camera.select_set(False)
 
@@ -155,21 +167,21 @@ class LASERCUTSVGEXPORT_OT_scale_scene(bpy.types.Operator):
         if 'Light' in bpy.data.objects:
             default_light = bpy.data.objects['Light']
             default_light.select_set(True)
-            bpy.context.view_layer.objects.active = default_light
-            bpy.context.object.data.energy = 1e+06
-            if bpy.context.object.scale.length > 2:
+            context.view_layer.objects.active = default_light
+            context.object.data.energy = 1e+06
+            if context.object.scale.length > 2:
                 # Don't scale more than once (initial is srqt(3) ~= 1.71)
                 default_light.select_set(False)
 
-        # Scale by 50 from Global center select objects (maybe Camera and Light)
-        if bpy.context.selected_objects:
+        # Scale by 50 from Global center selected objects (maybe Camera and Light)
+        if context.selected_objects:
             bpy.ops.view3d.snap_cursor_to_center()
-            bpy.context.scene.tool_settings.transform_pivot_point = 'CURSOR'
+            context.scene.tool_settings.transform_pivot_point = 'CURSOR'
             bpy.ops.transform.resize(value=(50, 50, 50), orient_type='GLOBAL')
             bpy.ops.object.select_all(action='DESELECT')
 
             # Unzoom all 3D views
-            for area in bpy.context.screen.areas:
+            for area in context.screen.areas:
                 if area.type == 'VIEW_3D':
                     for region in area.regions:
                         if region.type == 'WINDOW':
@@ -177,7 +189,7 @@ class LASERCUTSVGEXPORT_OT_scale_scene(bpy.types.Operator):
                             for i in range(20):
                                 bpy.ops.view3d.zoom(delta=-1)
 
-        bpy.context.scene.tool_settings.transform_pivot_point = old_pivot_point
+        context.scene.tool_settings.transform_pivot_point = old_pivot_point
 
         return {"FINISHED"}
 
@@ -393,50 +405,66 @@ class LASERCUTSVGEXPORT_OT_boolean_cut(bpy.types.Operator):
             if other_ob.type == "MESH" and ob != other_ob
         ]
 
+
 class LASERCUTSVGEXPORT_OT_mark_faces(bpy.types.Operator):
     bl_idname = "lasercut_svg_export.mark_faces"
     bl_label = "Mark lasercut faces"
     bl_description = "Mark selected faces to be exported to 2D SVG"
     bl_options = {"REGISTER", "UNDO"}
-    
-    mark: bpy.props.BoolProperty(name="Mark face to export")
+
+    mark: bpy.props.IntProperty(name="lasercut face marker")
 
     @classmethod
     def poll(cls, context: bpy.types.Context) -> bool:
-        ob = context.edit_object
-        in_edit_mode = ob and ob.type == "MESH" and ob.mode == "EDIT"
-        return bool(in_edit_mode and bpy.ops.mesh.separate.poll())
+        if context.mode != 'EDIT_MESH':
+            return False
+        bm = bmesh.from_edit_mesh(context.object.data)
+        selfaces = [f for f in bm.faces if f.select]
+        enabled = (len(selfaces) > 0)
+        bm.free()
+        return enabled
 
     def execute(self, context: bpy.types.Context) -> set[str]:
-        mesh = context.edit_object.data
-        
-        # Get a BMesh representation
-        bm = bmesh.new()   # create an empty BMesh
-        bm.from_mesh(mesh) # fill it in from a Mesh
+        # From https://docs.blender.org/api/current/bmesh.html#bmesh.from_edit_mesh and
+        # Inspired by https://blender.stackexchange.com/questions/4964/setting-additional-properties-per-face
 
-        # XXX ensure taht active int layer is the right one, or select it ?
-        lasercut_layer = bm.faces.layers.int.active
-        if not lasercut_layer:
-            lasercut_layer = bm.faces.layers.int.new("lasercut")
-        
+        # Get a BMesh representation, we're in edit mode (see poll()), there is already a BMesh available
+        bm = bmesh.from_edit_mesh(context.object.data)
+
+        lasercut_layer_key = bm.faces.layers.int.get("lasercut")
+        if not lasercut_layer_key:
+            lasercut_layer_key = bm.faces.layers.int.new("lasercut")
+
         for face in bm.faces:
-            # XXX filter only on selected faces
-            if self.mark:
-                print(f"mark_face on {face}")
-                face[lasercut_layer] = 1
-            else:
-                print(f"unmark_face on {face}")
-                face[lasercut_layer] = 0
-        
+            if face.select:
+                face[lasercut_layer_key] = self.mark
+
         # Finish up, write the bmesh back to the mesh
-        bpy.ops.object.mode_set(mode="OBJECT")
-        bm.to_mesh(mesh)
+        bmesh.update_edit_mesh(context.object.data)
         bm.free()  # free and prevent further access
 
-        # as per https://docs.blender.org/api/current/bmesh.html#edit-mode-tessellation
-        mesh.calc_loop_triangles()
+        return {"FINISHED"}
 
-        # Toggle edit mode back & forth to ensure edit data is up to date.
-        bpy.ops.object.mode_set(mode="EDIT")
 
+class LASERCUTSVGEXPORT_OT_print_edges(bpy.types.Operator):
+    bl_idname = "lasercut_svg_export.print_edges"
+    bl_label = "Print edges props"
+    bl_description = "Print edges lasercut properties"
+    bl_options = {"REGISTER"}
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context) -> bool:
+        if context.mode != 'EDIT_MESH':
+            return False
+        bm = bmesh.from_edit_mesh(context.object.data)
+        seledges = [e for e in bm.edges if e.select]
+        enabled = (len(seledges) > 0)
+        bm.free()
+        return enabled
+
+    def execute(self, context: bpy.types.Context) -> set[str]:
+        bm = bmesh.from_edit_mesh(context.object.data)
+        seledges = [e for e in bm.edges if e.select]
+        print(seledges)
+        bm.free()
         return {"FINISHED"}
